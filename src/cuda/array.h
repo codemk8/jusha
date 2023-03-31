@@ -53,34 +53,7 @@ namespace jusha {
     cpuNeedToFree(true)
       {
       }
-
-    // explicit MirroredArray(bool gpuArray):
-    //     mSize(0),
-    //     mCapacity(0),
-    //     hostBase(),
-    //     dvceBase(),
-    //     isCpuValid(false),
-    //     isGpuValid(false),
-    //     gpuAllocated(false),
-    //     cpuAllocated(false),
-    //   isGpuArray(gpuArray? true:  false)
-    //   {
-        
-    //   }      
-
-      // explicit MirroredArray(ArrayType t):
-      //   mSize(0),
-      //   mCapacity(0),
-      //   hostBase(),
-      //   dvceBase(),
-      //   isCpuValid(false),
-      //   isGpuValid(false),
-      //   gpuAllocated(false),
-      //   cpuAllocated(false),
-      // isGpuArray( t == ArrayType::GPU_ARRAY? true:  false)
-      // {
-        
-      // }      
+  
 
       ~MirroredArray() {
         //        printf("inside destructor size %ld %p.\n", mSize, dvceBase);
