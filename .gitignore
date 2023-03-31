@@ -40,4 +40,5 @@
 .*
 release/
 debug/
+build/
 TAGS
