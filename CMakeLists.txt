@@ -3,9 +3,8 @@ set(jusha_VERSION 0.1.0)
 set(jusha_VERSION_MAJOR 0)
 set(jusha_VERSION_MINOR 1)
 set(jusha_VERSION_PATCH 0)
-
 project(jusha VERSION ${jusha_VERSION} LANGUAGES CXX CUDA)
-
+find_package(CUDAToolkit)
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -24,7 +23,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall")
 # set(CUDA_PROPAGATE_HOST_FLAGS ON)
 set(CUDA_BLOCKSIZE 256 CACHE STRING "CUDA block size.")
 
-# Make the gampack headers visible without extra paths.
 include_directories(src)
 include_directories("${CMAKE_BINARY_DIR}/src")
 
@@ -84,7 +82,7 @@ set(HEADERS_LIST
 )
 ADD_LIBRARY(jusha STATIC ${CU_SRC_LIST} ${CPP_SRC_LIST} ${HEADERS_LIST})
 target_link_libraries(jusha ${CUDA_curand_LIBRARY})
-
+target_include_directories(jusha PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
 add_subdirectory(tests)
 
 # add_subdirectory (utest)

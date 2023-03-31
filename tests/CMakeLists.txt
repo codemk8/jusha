@@ -6,9 +6,11 @@ FetchContent_Declare(
 	GIT_TAG v2.13.4)
 
 FetchContent_MakeAvailable(Catch2)
+include(CTest)
 
 add_executable(test_d2d src/test_d2d.cu)
-target_link_libraries(test_d2d jusha)
+target_link_libraries(test_d2d jusha Catch2::Catch2)
+target_include_directories(test_d2d PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
 
 # add_executable (test_scan src/test_scan.cu)
 # target_link_libraries(test_scan jusha)
@@ -25,4 +27,5 @@ add_executable(jutest src/unit_test.cpp
 	src/distri_obj_test.cpp
 )
 
-target_link_libraries(jutest jusha)
+target_link_libraries(jutest jusha Catch2::Catch2)
+target_include_directories(jutest PRIVATE ${CUDAToolkit_INCLUDE_DIRS})

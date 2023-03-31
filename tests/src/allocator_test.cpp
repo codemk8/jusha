@@ -1,4 +1,4 @@
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include "utility.h"
 #include "cuda/heap_allocator.h"
 #include <list>

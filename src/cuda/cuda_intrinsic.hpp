@@ -14,7 +14,7 @@ namespace jusha {
     __inline__ __device__
     T warpReduceSum(T val) {
       for (int offset = JC_cuda_warpsize/2; offset > 0; offset /= 2) 
-        val += __shfl_down(val, offset);
+        val += __shfl_down_sync(JC_cuda_full_warp_mask, val, offset);
       return val;
     }
     
@@ -23,7 +23,7 @@ namespace jusha {
     __inline__ __device__
     T warpAllReduceSum(T val) {
       for (int mask = warpSize/2; mask > 0; mask /= 2) 
-        val += __shfl_xor(val, mask);
+        val += __shfl_xor_sync(JC_cuda_full_warp_mask, val, mask);
       return val;
     }
 

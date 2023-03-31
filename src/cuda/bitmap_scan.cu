@@ -36,7 +36,7 @@ namespace jusha {
 #else // skip shared memory for Kepler architecture
       #pragma unroll
       for (int offset = JC_cuda_warpsize/2; offset > 0; offset /= 2) 
-        val += __shfl_down(val, offset);
+        val += __shfl_down_sync(JC_cuda_full_warp_mask, val, offset);
 #endif      
       return val;
     }

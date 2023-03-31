@@ -1,6 +1,8 @@
 #include <thrust/transform.h>
 
-#include "catch.hpp"
+// #define CATCH_CONFIG_RUNNER
+#include <catch2/catch.hpp>
+
 #include "timer.h"
 #include "cuda/array.h"
 #include "cuda/primitive.h"

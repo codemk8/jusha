@@ -1,4 +1,5 @@
 #pragma once
+#include <cuda.h>
 #include <cuda_runtime_api.h>
 
 namespace jusha {
@@ -6,6 +7,7 @@ namespace jusha {
     /*! \brief defines are used in device code
      */
     #define JC_cuda_warpsize_shift  5
+    #define JC_cuda_full_warp_mask  0xFFFFFFFF
     #define JC_cuda_warpsize_mask   0x1F
     #define JC_cuda_blocksize       512
     #define JC_cuda_blocksize_shift 9
@@ -25,7 +27,8 @@ namespace jusha {
     };
 
     __inline__ void get_cuda_property(cudaDeviceProp &property) {
-      int gpu; cudaGetDevice(&gpu);
+      int gpu; 
+      cudaGetDevice(&gpu);
       cudaGetDeviceProperties(&property, gpu);
     }
 

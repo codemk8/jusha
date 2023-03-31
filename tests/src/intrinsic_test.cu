@@ -1,4 +1,4 @@
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <thrust/scan.h>
 #include <thrust/sort.h>
 #include "utility.h"
