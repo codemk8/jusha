@@ -4,94 +4,98 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-//#include "CudppPlanFactory.h"
 
 #include <thrust/device_ptr.h>
-//#include "SegmentArrayKernel.h"
 #include <curand.h>
 #include "../utility.h"
 #include "./external_lib_wrapper.h"
 #include "./heap_manager.h"
-//#define USE_SHARED_PTR 1
+// #define USE_SHARED_PTR 1
 #include <cstddef>
-//#include <memory>
+// #include <memory>
 
-//extern cudaDeviceProp gDevProp;
+// extern cudaDeviceProp gDevProp;
 
-
-namespace jusha {
+namespace jusha
+{
   extern HeapManager gHeapManager;
-  namespace cuda {  
-    #define MAX_PRINT_SIZE 32
+  namespace cuda
+  {
+#define MAX_PRINT_SIZE 32
 
     template <typename T>
-    void fill(T *begin, T *end, const T & val);
+    void fill(T *begin, T *end, const T &val);
 
     template <typename T>
-    void fill(thrust::device_ptr<T> begin, thrust::device_ptr<T> end, const T&val);
-    
+    void fill(thrust::device_ptr<T> begin, thrust::device_ptr<T> end, const T &val);
+
     enum class ArrayType
-    { 
+    {
       CPU_ARRAY = 0,
-        GPU_ARRAY = 1
-        } ;
+      GPU_ARRAY = 1
+    };
 
     template <class T>
-      class MirroredArray{
+    class MirroredArray
+    {
     public:
-      explicit MirroredArray(int size = 0):
-	mSize(size),
-        mCapacity(size),
-        hostBase(),
-        dvceBase(),
-        isCpuValid(false),
-        isGpuValid(false),
-        gpuAllocated(false),
-    cpuAllocated(false),
-	isGpuArray(false),
-    gpuNeedToFree(true),
-    cpuNeedToFree(true)
+      explicit MirroredArray(int size = 0) : mSize(size),
+                                             mCapacity(size),
+                                             mHostBase(),
+                                             mDvceBase(),
+                                             mIsCpuValid(false),
+                                             mIsGpuValid(false),
+                                             mGpuAllocated(false),
+                                             mCpuAllocated(false),
+                                             mIsGpuArray(false),
+                                             gpuNeedToFree(true),
+                                             cpuNeedToFree(true)
       {
       }
-  
 
-      ~MirroredArray() {
-        //        printf("inside destructor size %ld %p.\n", mSize, dvceBase);
+      ~MirroredArray()
+      {
         destroy();
       }
-      
-      void setGpuArray() {
-        isGpuArray = true;
+
+      void SetGpuArray()
+      {
+        mIsGpuArray = true;
       }
 
-      void setCpuArray() {
-        isGpuArray = false;
+      void SetCpuArray()
+      {
+        mIsGpuArray = false;
       }
 
-      bool IsGpuArray() const {
-        return isGpuArray;
+      bool mIsGpuArray() const
+      {
+        return mIsGpuArray;
       }
-      
-      void destroy() {
-        if (dvceBase && gpuNeedToFree) {
+
+      void destroy()
+      {
+        if (mDvceBase && gpuNeedToFree)
+        {
 #ifdef USE_SHARED_PTR
-          gHeapManager.NeFree(GPU_HEAP, dvceBase.get());
+          gHeapManager.NeFree(GPU_HEAP, mDvceBase.get());
 #else
-          gHeapManager.NeFree(GPU_HEAP, dvceBase, size()*sizeof(T));
+          gHeapManager.NeFree(GPU_HEAP, mDvceBase, size() * sizeof(T));
 #endif
-          dvceBase = NULL;
+          mDvceBase = NULL;
         }
-        if (hostBase && mCapacity > 0 && cpuNeedToFree) {
-          gHeapManager.NeFree(CPU_HEAP, hostBase, size()*sizeof(T));
-          hostBase = NULL;	  
+        if (mHostBase && mCapacity > 0 && cpuNeedToFree)
+        {
+          gHeapManager.NeFree(CPU_HEAP, mHostBase, size() * sizeof(T));
+          mHostBase = NULL;
         }
         init_state();
       }
       // Copy Constructor
-      MirroredArray(const MirroredArray<T> &rhs) 
+      MirroredArray(const MirroredArray<T> &rhs)
       {
         init_state();
-        //          printf("in copy constructore %d %d %d %d.\n", isGpuValid, gpuAllocated, isCpuValid, cpuAllocated);          
+        //          printf("in copy constructore %d %d %d %d.\n", mIsGpuValid, mGpuAllocated, mIsCpuValid, mCpuAllocated);
         deep_copy(rhs);
       }
 
@@ -99,125 +103,127 @@ namespace jusha {
       {
         init_state();
         clean_resize(rhs.size());
-        cudaMemcpy(getOverwriteGpuPtr(), rhs.data(), size()*sizeof(T), cudaMemcpyDefault);
+        cudaMemcpy(getOverwriteGpuPtr(), rhs.data(), size() * sizeof(T), cudaMemcpyDefault);
       }
 
       void operator=(const std::vector<T> &rhs)
       {
         //        init_state();
         clean_resize(rhs.size());
-        cudaMemcpy(getOverwriteGpuPtr(), rhs.data(), size()*sizeof(T), cudaMemcpyDefault);
+        cudaMemcpy(getOverwriteGpuPtr(), rhs.data(), size() * sizeof(T), cudaMemcpyDefault);
       }
-
 
       /* Init from raw pointers
        */
-      void init(const T *ptr, size_t _size) {
+      void init(const T *ptr, size_t _size)
+      {
         clean_resize(_size);
         T *g_ptr = getGpuPtr();
         cudaMemcpy(g_ptr, ptr, sizeof(T) * _size, cudaMemcpyDefault);
       }
       // dangerous, used at your own risk!
       // does not check size consistency
-      void setGpuPtr(T *ptr,  int _size, bool needToFree=false)
+      void setGpuPtr(T *ptr, int _size, bool needToFree = false)
       {
 #if USE_SHARED_PTR
         if (!needToFree)
-          {
-            std::shared_ptr<T> newDvceBase((T*)ptr, EmptyDeviceDeleter);
-            dvceBase = newDvceBase;
-          }
+        {
+          std::shared_ptr<T> newmDvceBase((T *)ptr, EmptyDeviceDeleter);
+          mDvceBase = newmDvceBase;
+        }
         else
-          {
-            std::shared_ptr<T> newDvceBase((T*)ptr, GpuDeviceDeleter);
-            dvceBase = newDvceBase;
-          }
+        {
+          std::shared_ptr<T> newmDvceBase((T *)ptr, GpuDeviceDeleter);
+          mDvceBase = newmDvceBase;
+        }
 #else
-        if (dvceBase && gpuNeedToFree)
-          gHeapManager.NeFree(GPU_HEAP, dvceBase, sizeof(T)*mSize);
-        dvceBase = ptr;
+        if (mDvceBase && gpuNeedToFree)
+          gHeapManager.NeFree(GPU_HEAP, mDvceBase, sizeof(T) * mSize);
+        mDvceBase = ptr;
 #endif
-	//        isCpuValid = false;
+        //        mIsCpuValid = false;
         mSize = _size;
-        isGpuValid = true;
+        mIsGpuValid = true;
         gpuNeedToFree = needToFree;
-        gpuAllocated = true;
+        mGpuAllocated = true;
       }
-      
+
       void setPtr(T *ptr, int _size)
       {
 #if USE_SHARED_PTR
-        hostBase.reset(ptr);
+        mHostBase.reset(ptr);
 #else
-        if (hostBase && mCapacity >= 0 && cpuNeedToFree)
-          gHeapManager.NeFree(CPU_HEAP, hostBase, sizeof(T)*mSize);
-        hostBase = ptr;
+        if (mHostBase && mCapacity >= 0 && cpuNeedToFree)
+          gHeapManager.NeFree(CPU_HEAP, mHostBase, sizeof(T) * mSize);
+        mHostBase = ptr;
 #endif
         mSize = _size;
-        isCpuValid = true;
-        cpuAllocated = true;
+        mIsCpuValid = true;
+        mCpuAllocated = true;
         cpuNeedToFree = false;
-	//        mCapacity = -1; // to disable calling free	
+        //        mCapacity = -1; // to disable calling free
       }
-      
-      MirroredArray<T> &operator=(const MirroredArray<T> &rhs)
-        {
-          deep_copy(rhs);
-          return *this;
-        }
 
+      MirroredArray<T> &operator=(const MirroredArray<T> &rhs)
+      {
+        deep_copy(rhs);
+        return *this;
+      }
 
       // deep copy from
-      void deep_copy(const MirroredArray<T> &src) 
+      void deep_copy(const MirroredArray<T> &src)
       {
         clean_resize(src.size());
-        //        printf("deep copy src gpuvalid %d my gpuvalid %d gpu alloc %d.\n", src.isGpuValid, isGpuValid, gpuAllocated);
-        if (src.isGpuValid)
-          {
-            if (src.size())
-              cudaMemcpy(getGpuPtr(), src.getReadOnlyGpuPtr(), sizeof(T)*mSize, cudaMemcpyDeviceToDevice);
-            //            printf("deep copy src gpuvalid %d my gpuvalid %d %p size %zd.\n", src.isGpuValid, isGpuValid,dvceBase, src.size());
-          }
-        else if (src.isCpuValid)
-          {
-            if (src.size())
-              memcpy(getPtr(), src.getReadOnlyPtr(), sizeof(T)*mSize);
-          }
-        isGpuArray = src.isGpuArray;
+        //        printf("deep copy src gpuvalid %d my gpuvalid %d gpu alloc %d.\n", src.mIsGpuValid, mIsGpuValid, mGpuAllocated);
+        if (src.mIsGpuValid)
+        {
+          if (src.size())
+            cudaMemcpy(getGpuPtr(), src.getReadOnlyGpuPtr(), sizeof(T) * mSize, cudaMemcpyDeviceToDevice);
+          //            printf("deep copy src gpuvalid %d my gpuvalid %d %p size %zd.\n", src.mIsGpuValid, mIsGpuValid,mDvceBase, src.size());
+        }
+        else if (src.mIsCpuValid)
+        {
+          if (src.size())
+            memcpy(getPtr(), src.getReadOnlyPtr(), sizeof(T) * mSize);
+        }
+        mIsGpuArray = src.mIsGpuArray;
       }
 
-      bool GpuHasLatest() const {
-        return isGpuValid;
+      bool GpuHasLatest() const
+      {
+        return mIsGpuValid;
       }
 
-      bool CpuHasLatest() const {
-        return isCpuValid;
+      bool CpuHasLatest() const
+      {
+        return mIsCpuValid;
       }
-      
+
       // deep copy to
       void clone(MirroredArray<T> &dst) const
       {
         dst.clean_resize(size());
-        if (isGpuValid)
-          {
-            cudaMemcpy(dst.getGpuPtr(), getReadOnlyGpuPtr(), sizeof(T)*mSize, cudaMemcpyDeviceToDevice);
-          }
-        if (isCpuValid)
-          {
-            memcpy(dst.getPtr(), getReadOnlyPtr(), sizeof(T)*mSize);
-          }
-        
-        dst.isCpuValid = isCpuValid;
-        dst.isGpuValid = isGpuValid;
-        dst.gpuAllocated = gpuAllocated;
-        dst.cpuAllocated = cpuAllocated;
+        if (mIsGpuValid)
+        {
+          cudaMemcpy(dst.getGpuPtr(), getReadOnlyGpuPtr(), sizeof(T) * mSize, cudaMemcpyDeviceToDevice);
+        }
+        if (mIsCpuValid)
+        {
+          memcpy(dst.getPtr(), getReadOnlyPtr(), sizeof(T) * mSize);
+        }
+
+        dst.mIsCpuValid = mIsCpuValid;
+        dst.mIsGpuValid = mIsGpuValid;
+        dst.mGpuAllocated = mGpuAllocated;
+        dst.mCpuAllocated = mCpuAllocated;
       }
 
-      void alias(const MirroredArray<T> & dst) {
+      void alias(const MirroredArray<T> &dst)
+      {
         shallow_copy(dst);
         mCapacity = -1; // to disable calling free
       }
-      
+
       void clear()
       {
         resize(0);
@@ -230,213 +236,228 @@ namespace jusha {
         //    temp.clone(rhs);
         rhs = *this;
         *this = temp;
-        //    temp.hostBase = 0;
-        //    temp.dvceBase = 0;
-        temp.cpuAllocated = false;
-        temp.gpuAllocated = false;
+        //    temp.mHostBase = 0;
+        //    temp.mDvceBase = 0;
+        temp.mCpuAllocated = false;
+        temp.mGpuAllocated = false;
       }
-      
+
       int size() const
       {
         return mSize;
       }
-      
+
       /*! A clean version of resize.
-        It does not copy the old data, 
-        nor does it initialize the data 
+        It does not copy the old data,
+        nor does it initialize the data
       */
-      void clean_resize(int64_t _size) {
-        if (mCapacity >= _size || _size == 0)  {
+      void clean_resize(int64_t _size)
+      {
+        if (mCapacity >= _size || _size == 0)
+        {
           mSize = _size;
-          isGpuValid = false;
-          isCpuValid = false;
+          mIsGpuValid = false;
+          mIsCpuValid = false;
           return;
         }
-        if (_size > 0)  {
+        if (_size > 0)
+        {
           // depending on previous state
-          if (gpuAllocated) {
-            if (dvceBase)
-              gHeapManager.NeFree(GPU_HEAP, dvceBase, mCapacity*sizeof(T));
-            gHeapManager.NeMalloc(GPU_HEAP, (void**)&dvceBase, _size * sizeof(T));
-            isGpuValid = false;
+          if (mGpuAllocated)
+          {
+            if (mDvceBase)
+              gHeapManager.NeFree(GPU_HEAP, mDvceBase, mCapacity * sizeof(T));
+            gHeapManager.NeMalloc(GPU_HEAP, (void **)&mDvceBase, _size * sizeof(T));
+            mIsGpuValid = false;
           }
-          if (cpuAllocated) {
-            if (hostBase)
-              gHeapManager.NeFree(CPU_HEAP, hostBase, mCapacity*sizeof(T));
-            gHeapManager.NeMalloc(CPU_HEAP, (void**)&hostBase, _size * sizeof(T));
-            isCpuValid = false;
+          if (mCpuAllocated)
+          {
+            if (mHostBase)
+              gHeapManager.NeFree(CPU_HEAP, mHostBase, mCapacity * sizeof(T));
+            gHeapManager.NeMalloc(CPU_HEAP, (void **)&mHostBase, _size * sizeof(T));
+            mIsCpuValid = false;
           }
           mSize = _size;
           mCapacity = _size;
         }
       }
 
-      void resize(int64_t _size) 
+      void resize(int64_t _size)
       {
 #ifdef _DEBUG_
         std::cout << "new size " << _size << " old size " << mSize << std::endl;
 #endif
         if (_size <= mCapacity)
+        {
+          // free memory if resize to zero
+          if (_size == 0 && mSize > 0)
           {
-            // free memory if resize to zero
-            if (_size == 0 && mSize > 0) {
-              destroy();
-            }
-            mSize = _size;
+            destroy();
           }
+          mSize = _size;
+        }
         else // need to reallocate
+        {
+#if USE_SHARED_PTR
+          if (mGpuAllocated)
           {
-#if USE_SHARED_PTR 
-            if (gpuAllocated)
-              {
-                std::shared_ptr<T> newDvceBase((T*)GpuDeviceAllocator(_size*sizeof(T)), GpuDeviceDeleter);
-                if (isGpuValid)
-                  {
-                    cudaError_t error = cudaMemcpy(newDvcebase, dvcebase, mSize*sizeof(T), cudaMemcpyDeviceToDevice);
-                    //            std::cout << "memcpy d2d size:" << mSize*sizeof(T)  << std::endl;
-                    assert(error == cudaSuccess);
-                  }
-                dvceBase = newDvceBase;
-              }
-            if (cpuAllocated)
-              {
-                std::shared_ptr<T> newHostBase((T*)GpuHostAllocator(_size*sizeof(T)), GpuHostDeleter);
-                if (isCpuValid)
-                  memcpy(newHostBase, hostBase, mSize*sizeof(T));
-                hostBase = newHostBase;            
-              }
-            mSize = _size;
-            mCapacity = _size;
-#else
-            T *newDvceBase(0);
-            T *newHostBase(0);
-	    if (!gpuAllocated && !cpuAllocated) {
-	      if (isGpuArray) {
-		gHeapManager.NeMalloc(GPU_HEAP, (void**)&newDvceBase, _size * sizeof(T));
-                assert(newDvceBase);
-	      } else {
-		gHeapManager.NeMalloc(CPU_HEAP, (void**)&newHostBase, _size*sizeof(T));
-                //            newHostBase = (T*)malloc(size * sizeof(T));
-                assert(newHostBase);
-	      }
-	    }
-            if (gpuAllocated)
-              {
-                // cutilSafeCall(cudaMalloc((void**) &newDvceBase, size * _sizeof(T)));
-                gHeapManager.NeMalloc(GPU_HEAP, (void**)&newDvceBase, _size * sizeof(T));
-                assert(newDvceBase);
-                // TODO memcpy 
-              }
-            if (cpuAllocated)
-              {
-                gHeapManager.NeMalloc(CPU_HEAP, (void**)&newHostBase, _size*sizeof(T));
-                //            newHostBase = (T*)malloc(size * sizeof(T));
-                assert(newHostBase);
-              }
-            if (isCpuValid && cpuAllocated)
-              {
-                memcpy(newHostBase, hostBase, mSize*sizeof(T));
-              }
-            if (isGpuValid && gpuAllocated)
-              {
-                cudaError_t error = cudaMemcpy(newDvceBase, dvceBase, mSize*sizeof(T), cudaMemcpyDeviceToDevice);
-                jassert(error == cudaSuccess);
-              }
-            if (hostBase && mCapacity > 0 && cpuNeedToFree)
-              gHeapManager.NeFree(CPU_HEAP, hostBase, sizeof(T)*mSize);
-            //          free(hostBase);
-            if (dvceBase && gpuNeedToFree)
-              {
-                gHeapManager.NeFree(GPU_HEAP, dvceBase, sizeof(T)*mSize);
-                //            cutilSafeCall(cudaFree(dvceBase));
-              }
-#ifdef _DEBUG_
-            std::cout << "free at resize:" << std::hex << dvceBase << std::endl;
-#endif
-            hostBase = newHostBase;
-            dvceBase = newDvceBase;
-	    // if (hostBase)
-	    //   std::fill(hostBase+mSize, hostBase + _size, T());
-	    // if (dvceBase)
-	    //   jusha::cuda::fill(dvceBase + mSize, dvceBase + _size, T());
-            mSize = _size;
-            gpuAllocated = dvceBase == 0? false: true;
-            cpuAllocated = hostBase == 0? false: true;
-            mCapacity = _size;
-#endif
+            std::shared_ptr<T> newmDvceBase((T *)GpuDeviceAllocator(_size * sizeof(T)), GpuDeviceDeleter);
+            if (mIsGpuValid)
+            {
+              cudaError_t error = cudaMemcpy(newmDvceBase, mDvceBase, mSize * sizeof(T), cudaMemcpyDeviceToDevice);
+              //            std::cout << "memcpy d2d size:" << mSize*sizeof(T)  << std::endl;
+              assert(error == cudaSuccess);
+            }
+            mDvceBase = newmDvceBase;
           }
+          if (mCpuAllocated)
+          {
+            std::shared_ptr<T> newmHostBase((T *)GpuHostAllocator(_size * sizeof(T)), GpuHostDeleter);
+            if (mIsCpuValid)
+              memcpy(newmHostBase, mHostBase, mSize * sizeof(T));
+            mHostBase = newmHostBase;
+          }
+          mSize = _size;
+          mCapacity = _size;
+#else
+          T *newmDvceBase(0);
+          T *newmHostBase(0);
+          if (!mGpuAllocated && !mCpuAllocated)
+          {
+            if (mIsGpuArray)
+            {
+              gHeapManager.NeMalloc(GPU_HEAP, (void **)&newmDvceBase, _size * sizeof(T));
+              assert(newmDvceBase);
+            }
+            else
+            {
+              gHeapManager.NeMalloc(CPU_HEAP, (void **)&newmHostBase, _size * sizeof(T));
+              //            newmHostBase = (T*)malloc(size * sizeof(T));
+              assert(newmHostBase);
+            }
+          }
+          if (mGpuAllocated)
+          {
+            // cutilSafeCall(cudaMalloc((void**) &newmDvceBase, size * _sizeof(T)));
+            gHeapManager.NeMalloc(GPU_HEAP, (void **)&newmDvceBase, _size * sizeof(T));
+            assert(newmDvceBase);
+            // TODO memcpy
+          }
+          if (mCpuAllocated)
+          {
+            gHeapManager.NeMalloc(CPU_HEAP, (void **)&newmHostBase, _size * sizeof(T));
+            //            newmHostBase = (T*)malloc(size * sizeof(T));
+            assert(newmHostBase);
+          }
+          if (mIsCpuValid && mCpuAllocated)
+          {
+            memcpy(newmHostBase, mHostBase, mSize * sizeof(T));
+          }
+          if (mIsGpuValid && mGpuAllocated)
+          {
+            cudaError_t error = cudaMemcpy(newmDvceBase, mDvceBase, mSize * sizeof(T), cudaMemcpyDeviceToDevice);
+            jassert(error == cudaSuccess);
+          }
+          if (mHostBase && mCapacity > 0 && cpuNeedToFree)
+            gHeapManager.NeFree(CPU_HEAP, mHostBase, sizeof(T) * mSize);
+          //          free(mHostBase);
+          if (mDvceBase && gpuNeedToFree)
+          {
+            gHeapManager.NeFree(GPU_HEAP, mDvceBase, sizeof(T) * mSize);
+            //            cutilSafeCall(cudaFree(mDvceBase));
+          }
+#ifdef _DEBUG_
+          std::cout << "free at resize:" << std::hex << mDvceBase << std::endl;
+#endif
+          mHostBase = newmHostBase;
+          mDvceBase = newmDvceBase;
+          // if (mHostBase)
+          //   std::fill(mHostBase+mSize, mHostBase + _size, T());
+          // if (mDvceBase)
+          //   jusha::cuda::fill(mDvceBase + mSize, mDvceBase + _size, T());
+          mSize = _size;
+          mGpuAllocated = mDvceBase == 0 ? false : true;
+          mCpuAllocated = mHostBase == 0 ? false : true;
+          mCapacity = _size;
+#endif
+        }
       }
 
       void zero()
       {
-        if (isGpuArray) {
-          cudaMemset((void *)getOverwriteGpuPtr(), 0, sizeof(T)*mSize);
+        if (mIsGpuArray)
+        {
+          cudaMemset((void *)getOverwriteGpuPtr(), 0, sizeof(T) * mSize);
           check_cuda_error("after cudaMemset", __FILE__, __LINE__);
-        } else {
-          memset((void *)getOverwritePtr(), 0, sizeof(T)*mSize);
+        }
+        else
+        {
+          memset((void *)getOverwritePtr(), 0, sizeof(T) * mSize);
         }
       }
 
       /*! return the pointer without changing the internal state */
-      T *getRawPtr() {
+      T *getRawPtr()
+      {
         allocateCpuIfNecessary();
-        return hostBase;
+        return mHostBase;
       }
 
       /*! return the gpu pointer without changing the internal state */
-      T *getRawGpuPtr() {
+      T *getRawGpuPtr()
+      {
         allocateGpuIfNecessary();
-        return dvceBase;
+        return mDvceBase;
       }
-
 
       const T *getReadOnlyPtr() const
       {
         enableCpuRead();
-        return hostBase;
+        return mHostBase;
       }
 
       T *getPtr()
       {
         enableCpuWrite();
-        return hostBase;
+        return mHostBase;
       }
 
       const T *getReadOnlyGpuPtr() const
       {
         enableGpuRead();
-        return dvceBase;
+        return mDvceBase;
       }
 
       T *getGpuPtr()
       {
-        //        printf("before enable gpu write  %p size %zd, %d %d\n", dvceBase, size(), isGpuValid, gpuAllocated);        
+        //        printf("before enable gpu write  %p size %zd, %d %d\n", mDvceBase, size(), mIsGpuValid, mGpuAllocated);
         enableGpuWrite();
-        //        printf("returning %p size %zd, %d %d\n", dvceBase, size(), isGpuValid, gpuAllocated);
-        return dvceBase;
+        //        printf("returning %p size %zd, %d %d\n", mDvceBase, size(), mIsGpuValid, mGpuAllocated);
+        return mDvceBase;
       }
-  
-      T *getOverwritePtr() {
+
+      T *getOverwritePtr()
+      {
         allocateCpuIfNecessary();
-        isCpuValid = true;
-        isGpuValid = false;
-        return hostBase;
+        mIsCpuValid = true;
+        mIsGpuValid = false;
+        return mHostBase;
       }
 
-      T *getOverwriteGpuPtr() {
+      T *getOverwriteGpuPtr()
+      {
         allocateGpuIfNecessary();
-        isCpuValid = false;
-        isGpuValid = true;
-        return dvceBase;
+        mIsCpuValid = false;
+        mIsGpuValid = true;
+        return mDvceBase;
       }
-
 
       T &operator[](int index)
-        {
-          assert(index < mSize);
-          T *host = getPtr();
-          return host[index];
-        }
+      {
+        assert(index < mSize);
+        T *host = getPtr();
+        return host[index];
+      }
 
       const T &operator[](int index) const
       {
@@ -445,23 +466,23 @@ namespace jusha {
         return host[index];
       }
 
-      //friend 
-      //MirroredArray<T> &operator-(const MirroredArray<T> &lhs, const MirroredArray<T> &rhs);
+      // friend
+      // MirroredArray<T> &operator-(const MirroredArray<T> &lhs, const MirroredArray<T> &rhs);
 
       /* only dma what's needed, instead of the whole array */
       const T getElementAt(const int index) const
       {
         assert(index < mSize);
-        //        printf("cpu valid %d gpu valid %d.\n", isCpuValid, isGpuValid);
-        assert(isCpuValid || isGpuValid);
-        if (isCpuValid)
-          //          return hostBase[index];
-          return hostBase[index];
-        T ele; 
+        //        printf("cpu valid %d gpu valid %d.\n", mIsCpuValid, mIsGpuValid);
+        assert(mIsCpuValid || mIsGpuValid);
+        if (mIsCpuValid)
+          //          return mHostBase[index];
+          return mHostBase[index];
+        T ele;
         allocateCpuIfNecessary();
-        //        cudaError_t error = cudaMemcpy(&ele, dvcebase+index, sizeof(T),cudaMemcpyDeviceToHost); 
-	//        printf("calling cudamemcpy \n");
-        cudaError_t error = cudaMemcpy(&ele, dvceBase+index, sizeof(T),cudaMemcpyDeviceToHost); 
+        //        cudaError_t error = cudaMemcpy(&ele, mDvceBase+index, sizeof(T),cudaMemcpyDeviceToHost);
+        //        printf("calling cudamemcpy \n");
+        cudaError_t error = cudaMemcpy(&ele, mDvceBase + index, sizeof(T), cudaMemcpyDeviceToHost);
         //    std::cout << "memcpy d2h size:" << sizeof(T)  << std::endl;
         jassert(error == cudaSuccess);
         return ele;
@@ -470,19 +491,19 @@ namespace jusha {
       void setElementAt(T &value, const int index)
       {
         jassert(index < mSize);
-        jassert(isCpuValid || isGpuValid);
-        if (isCpuValid)
-          //          hostBase[index] = value;
-          hostBase[index] = value;
-        if (isGpuValid)
-          {
-            //            cudaError_t error = cudaMemcpy(dvcebase+index, &value, sizeof(T), cudaMemcpyHostToDevice); 
-            cudaError_t error = cudaMemcpy(dvceBase+index, &value, sizeof(T), cudaMemcpyHostToDevice); 
-            jassert(error == cudaSuccess);
-          }
+        jassert(mIsCpuValid || mIsGpuValid);
+        if (mIsCpuValid)
+          //          mHostBase[index] = value;
+          mHostBase[index] = value;
+        if (mIsGpuValid)
+        {
+          //            cudaError_t error = cudaMemcpy(mDvceBase+index, &value, sizeof(T), cudaMemcpyHostToDevice);
+          cudaError_t error = cudaMemcpy(mDvceBase + index, &value, sizeof(T), cudaMemcpyHostToDevice);
+          jassert(error == cudaSuccess);
+        }
       }
 
-      void randomize() 
+      void randomize()
       {
         RandomWrapper<CURAND_RNG_PSEUDO_MTGP32, T> rng;
         rng.apply(getOverwriteGpuPtr(), mSize);
@@ -490,53 +511,57 @@ namespace jusha {
 
       // scale the array
       void scale(const T &ratio);
-      
+
       // set the array to the same value
-      void fill(const T &val) {
-        if (isGpuArray) {
+      void fill(const T &val)
+      {
+        if (mIsGpuArray)
+        {
           //      if (true) {
           jusha::cuda::fill(owbegin(), owend(), val);
           check_cuda_error("array fill", __FILE__, __LINE__);
-        } else {
-          std::fill(getOverwritePtr(), getOverwritePtr()+size(), val);
+        }
+        else
+        {
+          std::fill(getOverwritePtr(), getOverwritePtr() + size(), val);
         }
       }
-      
+
       // use sequence in thrust
       void sequence(int dir)
       {
         T *ptr = getPtr();
-        if (dir == 0) //ascending
-          {
-            for (int i = 0; i != mSize; i++)
-              *ptr++ = (T) i;
-          }
+        if (dir == 0) // ascending
+        {
+          for (int i = 0; i != mSize; i++)
+            *ptr++ = (T)i;
+        }
         else // descending
-          {
-            for (int i = 0; i != mSize; i++)
-              *ptr++ = (T) (mSize-i);
-          }
+        {
+          for (int i = 0; i != mSize; i++)
+            *ptr++ = (T)(mSize - i);
+        }
       }
 
       // for DEBUG purpose
-      void print(const char *header=0, int print_size = MAX_PRINT_SIZE) const
+      void print(const char *header = 0, int print_size = MAX_PRINT_SIZE) const
       {
         const T *ptr = getReadOnlyPtr();
-        int size = mSize > print_size? print_size: mSize;
+        int size = mSize > print_size ? print_size : mSize;
         if (header)
           std::cout << header << std::endl;
         for (int i = 0; i != size; i++)
-          std::cout << " " <<  ptr[i] ; 
+          std::cout << " " << ptr[i];
 
         std::cout << std::endl;
       }
-  
+
       /* math functions on mirrored array */
       /*  void reduce(CudppPlanFactory *factory, MirroredArray<T> &total, uint op)
           {
           // todo: test a threshold to determine whether do on CPU or GPU
           // currently do it on GPUs always
-    
+
           }*/
 
       void saveToFile(const char *filename) const
@@ -547,12 +572,12 @@ namespace jusha {
         assert(file);
         file << "size is " << size() << "\n";
         //      int size = printSize < size()? printSize:size();
-        const T * ptr = getReadOnlyPtr();
+        const T *ptr = getReadOnlyPtr();
         for (int i = 0; i != size(); i++)
-          file << ptr[i] << "(" << i << ")" << " ";
+          file << ptr[i] << "(" << i << ")"
+               << " ";
         file.close();
       }
-
 
       bool isSubsetOf(const MirroredArray<T> &super)
       {
@@ -562,25 +587,24 @@ namespace jusha {
         size_t superSize = super.size();
         if (mySize > superSize)
           return false;
-    
+
         for (int i = 0; i != mySize; i++)
+        {
+          bool found = false;
+          for (int j = 0; j != superSize; j++)
           {
-            bool found = false;
-            for (int j = 0; j != superSize; j++)
-              {
-                if (superBase[j] == myBase[i])
-                  {
-                    //                std::cout << "found " << myBase[i];
-                    found = true;
-                
-                  }
-              }
-            if (!found)
-              {
-                std::cout << "not finding " << myBase[i] << " in super array.\n";
-                return false;
-              }
+            if (superBase[j] == myBase[i])
+            {
+              //                std::cout << "found " << myBase[i];
+              found = true;
+            }
           }
+          if (!found)
+          {
+            std::cout << "not finding " << myBase[i] << " in super array.\n";
+            return false;
+          }
+        }
         return true;
       }
 
@@ -589,313 +613,316 @@ namespace jusha {
         const T *buffer = getReadOnlyPtr();
         bool allzero = true;
         for (int i = 0; i < mSize; i++)
+        {
+          if (buffer[i] != 0)
           {
-            if (buffer[i] != 0)
-              {
-                std::cout << "the " << i << "th value " << buffer[i] << " is not zero " << std::endl;
-                allzero = false;
-                break;
-              }
+            std::cout << "the " << i << "th value " << buffer[i] << " is not zero " << std::endl;
+            allzero = false;
+            break;
           }
+        }
         return allzero;
       }
 
       bool isEqualTo(const MirroredArray<T> &rhs) const
       {
-        if (rhs.size() != size()) return false;
+        if (rhs.size() != size())
+          return false;
         const T *buffer = getReadOnlyPtr();
         const T *buffer2 = rhs.getReadOnlyPtr();
         bool equal = true;
         for (int i = 0; i < mSize; i++)
+        {
+          if (buffer[i] != buffer2[i])
           {
-            if (buffer[i] != buffer2[i])
-              {
-                equal = false;
-                break;
-              }
+            equal = false;
+            break;
           }
+        }
         return equal;
       }
-
 
       bool isFSorted(int begin, int end) const
       {
         const T *buffer = getReadOnlyPtr();
         bool sorted = true;
-        if (begin == -1) begin = 0;
-        if (end == -1) end = mSize;
-        for (int i = begin; i < end-1; i++)
+        if (begin == -1)
+          begin = 0;
+        if (end == -1)
+          end = mSize;
+        for (int i = begin; i < end - 1; i++)
+        {
+          if (buffer[i] > buffer[i + 1])
           {
-            if (buffer[i] > buffer[i+1])
-              {
-                std::cout << "the " << i << "th value " << buffer[i] << " is bigger than " << buffer[i+1] << std::endl;
-                sorted = false;
-                break;
-              }
+            std::cout << "the " << i << "th value " << buffer[i] << " is bigger than " << buffer[i + 1] << std::endl;
+            sorted = false;
+            break;
           }
+        }
         return sorted;
       }
 
-      void invalidateGpu() {
-        isGpuValid = false;
+      void invalidateGpu()
+      {
+        mIsGpuValid = false;
       }
 
-
-      void invalidateCpu() {
-         isCpuValid = false;
+      void invalidateCpu()
+      {
+        mIsCpuValid = false;
       }
 
+      inline typename thrust::device_ptr<T> gbegin()
+      //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer)); }
+      {
+        enableGpuWrite();
+        return thrust::device_ptr<T>(getGpuPtr());
+      }
 
-    inline typename thrust::device_ptr<T> gbegin()
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer)); }
-    { 
-      enableGpuWrite();
-      return thrust::device_ptr<T>(getGpuPtr()); 
-    }
+      /*! \brief Return the last iterator (the first invalid iterator) in the srt::vector */
+      inline typename thrust::device_ptr<T> gend()
+      //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer+m_size)); }
+      {
+        enableGpuWrite();
+        return thrust::device_ptr<T>(getGpuPtr() + mSize);
+      }
 
-    /*! \brief Return the last iterator (the first invalid iterator) in the srt::vector */
-    inline typename thrust::device_ptr<T> gend()
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer+m_size)); }
-    { 
-      enableGpuWrite();
-      return thrust::device_ptr<T>(getGpuPtr()+mSize);
-    }
+      inline typename thrust::device_ptr<T> owbegin()
+      //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer)); }
+      {
+        return thrust::device_ptr<T>(getOverwriteGpuPtr());
+      }
 
-    inline typename thrust::device_ptr<T> owbegin()
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer)); }
-    { 
-      return thrust::device_ptr<T>(getOverwriteGpuPtr()); 
-    }
+      /*! \brief Return the last iterator (the first invalid iterator) in the srt::vector */
+      inline typename thrust::device_ptr<T> owend()
+      //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer+m_size)); }
+      {
+        return thrust::device_ptr<T>(getOverwriteGpuPtr() + mSize);
+      }
 
-    /*! \brief Return the last iterator (the first invalid iterator) in the srt::vector */
-    inline typename thrust::device_ptr<T> owend()
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer+m_size)); }
-    { 
-      return thrust::device_ptr<T>(getOverwriteGpuPtr()+mSize);
-    }
+      /*! \brief Return the iterator to the first element in the srt::vector */
+      inline typename thrust::device_ptr<T> gbegin() const
+      //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer)); }
+      {
+        enableGpuRead();
+        return thrust::device_ptr<T>(const_cast<T *>(getReadOnlyGpuPtr()));
+      }
 
-
-    /*! \brief Return the iterator to the first element in the srt::vector */
-    inline typename thrust::device_ptr<T> gbegin() const
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer)); }
-    { 
-      enableGpuRead();
-      return thrust::device_ptr<T>(const_cast<T*>(getReadOnlyGpuPtr()));
-    }
-
-    /*! \brief Return the last iterator (the first invalid iterator) in the srt::vector */
-    inline typename thrust::device_ptr<T> gend() const
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer+m_size)); }
-    {
-      enableGpuRead();
-      return thrust::device_ptr<T>(const_cast<T*>(getReadOnlyGpuPtr()+mSize));
-    }
+      /*! \brief Return the last iterator (the first invalid iterator) in the srt::vector */
+      inline typename thrust::device_ptr<T> gend() const
+      //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer+m_size)); }
+      {
+        enableGpuRead();
+        return thrust::device_ptr<T>(const_cast<T *>(getReadOnlyGpuPtr() + mSize));
+      }
 
       /*! explicitly sync to GPU buffer */
-      void syncToGpu() const {
-        //	assert(!(isGpuValid && !isCpuValid));
-	allocateGpuIfNecessary();
-	fromHostToDvce();
-	isGpuValid = true;
+      void syncToGpu() const
+      {
+        //	assert(!(mIsGpuValid && !mIsCpuValid));
+        allocateGpuIfNecessary();
+        fromHostToDvce();
+        mIsGpuValid = true;
       }
 
       /*! explicitly sync to CPU buffer */
-      void syncToCpu() const {
-        //	assert(!(isCpuValid && !isGpuValid));
-	allocateCpuIfNecessary();
-	fromDvceToHost();	
-	isCpuValid = true;
+      void syncToCpu() const
+      {
+        //	assert(!(mIsCpuValid && !mIsGpuValid));
+        allocateCpuIfNecessary();
+        fromDvceToHost();
+        mIsCpuValid = true;
       }
-    
+
       inline void enableGpuRead() const
       {
         allocateGpuIfNecessary();
-        if (!isGpuValid)
-          {
-            fromHostToDvceIfNecessary();
-            setGpuAvailable();
-          }
+        if (!mIsGpuValid)
+        {
+          fromHostToDvceIfNecessary();
+          setGpuAvailable();
+        }
       }
 
       inline void enableGpuWrite() const
       {
         allocateGpuIfNecessary();
-        if (!isGpuValid)
-	  fromHostToDvceIfNecessary();
-	
-	isCpuValid = false;
-	isGpuValid = true;
+        if (!mIsGpuValid)
+          fromHostToDvceIfNecessary();
+
+        mIsCpuValid = false;
+        mIsGpuValid = true;
       }
 
       inline void enableCpuRead() const
       {
-	allocateCpuIfNecessary();
-        if (!isCpuValid)
-          {
-            fromDvceToHostIfNecessary();
-            isCpuValid = true;
-          }
+        allocateCpuIfNecessary();
+        if (!mIsCpuValid)
+        {
+          fromDvceToHostIfNecessary();
+          mIsCpuValid = true;
+        }
       }
 
       inline void enableCpuWrite() const
       {
         allocateCpuIfNecessary();
-        if (!isCpuValid)
-	  fromDvceToHostIfNecessary();
+        if (!mIsCpuValid)
+          fromDvceToHostIfNecessary();
 
-	isCpuValid = true;
-	isGpuValid = false;
-      }
-  
-      void setGpuAvailable() const {
-        isGpuValid = true;
+        mIsCpuValid = true;
+        mIsGpuValid = false;
       }
 
+      void setGpuAvailable() const
+      {
+        mIsGpuValid = true;
+      }
 
     private:
-      void init_state() {
+      void init_state()
+      {
         mSize = 0;
         mCapacity = 0;
-        //        hostBase.reset();
-        //        dvceBase.reset();
-        hostBase = 0;//nullptr;
-        dvceBase = 0; //nullptr;
-        isCpuValid = false;
-        isGpuValid = false;
-        gpuAllocated = false;
-        cpuAllocated = false;
-        isGpuArray = false;
+        mHostBase = nullptr;
+        mDvceBase = nullptr;
+        mIsCpuValid = false;
+        mIsGpuValid = false;
+        mGpuAllocated = false;
+        mCpuAllocated = false;
+        mIsGpuArray = false;
       }
-      
-      inline void allocateCpuIfNecessary()  const
-      {
-        if (!cpuAllocated && mSize)
-          {
-#if USE_SHARED_PTR
-            std::shared_ptr<T> newHostBase((T*)GpuHostAllocator(mSize*sizeof(T)), GpuHostDeleter);
-            hostBase = newHostBase;
-#else
-            gHeapManager.NeMalloc(CPU_HEAP, (void**)&hostBase, mSize*sizeof(T));
-            assert(hostBase);
-#endif
-            //        hostBase = (T *)malloc(mSize * sizeof(T));
 
-            cpuAllocated = true;
-          }
+      inline void allocateCpuIfNecessary() const
+      {
+        if (!mCpuAllocated && mSize)
+        {
+#if USE_SHARED_PTR
+          std::shared_ptr<T> newmHostBase((T *)GpuHostAllocator(mSize * sizeof(T)), GpuHostDeleter);
+          mHostBase = newmHostBase;
+#else
+          gHeapManager.NeMalloc(CPU_HEAP, (void **)&mHostBase, mSize * sizeof(T));
+          assert(mHostBase);
+#endif
+          //        mHostBase = (T *)malloc(mSize * sizeof(T));
+
+          mCpuAllocated = true;
+        }
       }
 
       inline void allocateGpuIfNecessary() const
       {
-        if (!gpuAllocated && mSize)
-          {
-            //        cutilSafeCall(cudaMalloc((void**) &dvceBase, mSize * sizeof(T)));
+        if (!mGpuAllocated && mSize)
+        {
+          //        cutilSafeCall(cudaMalloc((void**) &mDvceBase, mSize * sizeof(T)));
 #if USE_SHARED_PTR
-            std::shared_ptr<T> newDvceBase((T*)GpuDeviceAllocator(mSize*sizeof(T)), GpuDeviceDeleter);
-            assert(newDvcebase != 0);
-            dvceBase = newDvceBase;
+          std::shared_ptr<T> newmDvceBase((T *)GpuDeviceAllocator(mSize * sizeof(T)), GpuDeviceDeleter);
+          assert(newmDvceBase != 0);
+          mDvceBase = newmDvceBase;
 #else
-            gHeapManager.NeMalloc(GPU_HEAP, (void**)&dvceBase, mSize * sizeof(T));
-            assert(dvceBase);
+          gHeapManager.NeMalloc(GPU_HEAP, (void **)&mDvceBase, mSize * sizeof(T));
+          assert(mDvceBase);
 #endif
-            gpuAllocated = true;
-          }
+          mGpuAllocated = true;
+        }
       }
 
-
-      inline void fromHostToDvce() const {
-        if (mSize) {
-          jassert(hostBase);
-          jassert(dvceBase);
-          cudaError_t error = cudaMemcpy(dvceBase, hostBase, mSize* sizeof(T), cudaMemcpyHostToDevice);
+      inline void fromHostToDvce() const
+      {
+        if (mSize)
+        {
+          jassert(mHostBase);
+          jassert(mDvceBase);
+          cudaError_t error = cudaMemcpy(mDvceBase, mHostBase, mSize * sizeof(T), cudaMemcpyHostToDevice);
           //        std::cout << "memcpy h2d size:" << mSize*sizeof(T)  << std::endl;
           jassert(error == cudaSuccess);
         }
-	
       }
-      
+
       inline void fromHostToDvceIfNecessary() const
       {
-        if (isCpuValid && !isGpuValid)
-          {
+        if (mIsCpuValid && !mIsGpuValid)
+        {
 #ifdef _DEBUG_
-            std::cout << "sync mirror array from host 0x" << std::hex << hostBase << " to device 0x" << dvcebase << " size(" << mSize << "); \n";
+          std::cout << "sync mirror array from host 0x" << std::hex << mHostBase << " to device 0x" << mDvceBase << " size(" << mSize << "); \n";
 #endif
-            fromHostToDvce();
-	    //            cudaError_t error = cudaMemcpy(dvcebase, hostBase, mSize* sizeof(T), cudaMemcpyHostToDevice);
-          }
+          fromHostToDvce();
+          //            cudaError_t error = cudaMemcpy(mDvceBase, mHostBase, mSize* sizeof(T), cudaMemcpyHostToDevice);
+        }
       }
 
       inline void fromDvceToHost() const
       {
-        if (mSize){
-          jassert(hostBase);
-          jassert(dvceBase);
-          cudaError_t error = cudaMemcpy(hostBase, dvceBase, mSize * sizeof(T),cudaMemcpyDeviceToHost);
+        if (mSize)
+        {
+          jassert(mHostBase);
+          jassert(mDvceBase);
+          cudaError_t error = cudaMemcpy(mHostBase, mDvceBase, mSize * sizeof(T), cudaMemcpyDeviceToHost);
           jassert(error == cudaSuccess);
-	}
+        }
       }
-      
+
       inline void fromDvceToHostIfNecessary() const
       {
-        if (isGpuValid && !isCpuValid)
+        if (mIsGpuValid && !mIsCpuValid)
+        {
+          //            check_cuda_error("before memcpy", __FILE__, __LINE__);
+          if (size())
           {
-            //            check_cuda_error("before memcpy", __FILE__, __LINE__);
-            if (size()) {
-              jassert(dvceBase);
-              jassert(hostBase);
-            }
-#ifdef _DEBUG_
-            std::cout << "sync mirror array from device 0x" << std::hex << dvceBase << " to host 0x" << hostBase << " size(" << mSize << "); \n";
-            /* assert(gHeapManager.find(CPU_HEAP, hostBase) >= (mSize * (int)sizeof(T))); */
-            /* assert(gHeapManager.find(GPU_HEAP, dvcebase) >= (mSize * (int)sizeof(T))); */
-            assert(gHeapManager.find(CPU_HEAP, hostBase) >= (mSize * (int)sizeof(T)));
-            assert(gHeapManager.find(GPU_HEAP, dvceBase) >= (mSize * (int)sizeof(T)));
-#endif
-            //            cudaError_t error = cudaMemcpy(hostBase, dvcebase, mSize * sizeof(T),cudaMemcpyDeviceToHost);
-	    fromDvceToHost();
+            jassert(mDvceBase);
+            jassert(mHostBase);
           }
+#ifdef _DEBUG_
+          std::cout << "sync mirror array from device 0x" << std::hex << mDvceBase << " to host 0x" << mHostBase << " size(" << mSize << "); \n";
+          /* assert(gHeapManager.find(CPU_HEAP, mHostBase) >= (mSize * (int)sizeof(T))); */
+          /* assert(gHeapManager.find(GPU_HEAP, mDvceBase) >= (mSize * (int)sizeof(T))); */
+          assert(gHeapManager.find(CPU_HEAP, mHostBase) >= (mSize * (int)sizeof(T)));
+          assert(gHeapManager.find(GPU_HEAP, mDvceBase) >= (mSize * (int)sizeof(T)));
+#endif
+          //            cudaError_t error = cudaMemcpy(mHostBase, mDvceBase, mSize * sizeof(T),cudaMemcpyDeviceToHost);
+          fromDvceToHost();
+        }
       }
 
       int64_t mSize;
       int mCapacity;
 #if USE_SHARED_PTR
-      std::shared_ptr<T> hostBase;
-      std::shared_ptr<T> dvceBase;
+      std::shared_ptr<T> mHostBase;
+      std::shared_ptr<T> mDvceBase;
 #else
-      mutable T *hostBase = 0;
-      mutable T *dvceBase = 0;
+      mutable T *mHostBase = 0;
+      mutable T *mDvceBase = 0;
 #endif
-      mutable bool isCpuValid;
-      mutable bool isGpuValid;
-      mutable bool gpuAllocated;
-      mutable bool cpuAllocated;
-      mutable bool isGpuArray;
+      mutable bool mIsCpuValid;
+      mutable bool mIsGpuValid;
+      mutable bool mGpuAllocated;
+      mutable bool mCpuAllocated;
+      mutable bool mIsGpuArray;
       mutable bool gpuNeedToFree = true;
-      mutable bool cpuNeedToFree = true;      
+      mutable bool cpuNeedToFree = true;
 
       void shallow_copy(const MirroredArray<T> &rhs)
       {
         mSize = rhs.mSize;
         mCapacity = rhs.mCapacity;
-        hostBase = rhs.hostBase;
-        dvceBase = rhs.dvceBase;
-        isCpuValid = rhs.isCpuValid;
-        isGpuValid = rhs.isGpuValid;
-        gpuAllocated = rhs.gpuAllocated;
-        cpuAllocated = rhs.cpuAllocated;
-        if (isGpuValid)
-          assert(gpuAllocated);
-        if (isCpuValid)
-          assert(cpuAllocated);
+        mHostBase = rhs.mHostBase;
+        mDvceBase = rhs.mDvceBase;
+        mIsCpuValid = rhs.mIsCpuValid;
+        mIsGpuValid = rhs.mIsGpuValid;
+        mGpuAllocated = rhs.mGpuAllocated;
+        mCpuAllocated = rhs.mCpuAllocated;
+        if (mIsGpuValid)
+          assert(mGpuAllocated);
+        if (mIsCpuValid)
+          assert(mCpuAllocated);
       }
 
       static curandGenerator_t curandGen;
-  
     };
 
-
     template <typename T, int BATCH>
-    struct BatchInit {
+    struct BatchInit
+    {
       T *ptrs[BATCH];
       size_t sizes[BATCH];
       T vals[BATCH];
@@ -909,32 +936,37 @@ namespace jusha {
     void batch_fill_wrapper(int num_small_arrays, int num_big_arrays, const BatchInit<T, BATCH> &init, cudaStream_t stream);
 
     /*! Help class to initialize multiple vectors at the same time
-     *  
+     *
      */
     template <class T, int BATCH>
-    class BatchInitializer {
+    class BatchInitializer
+    {
     public:
-      
-      void push_back(MirroredArray<T> *array, T val) {
+      void push_back(MirroredArray<T> *array, T val)
+      {
         m_arrays.push_back(array);
         m_vals.push_back(val);
         assert(m_arrays.size() < BATCH);
       }
-      void init(cudaStream_t stream = 0) {
+      void init(cudaStream_t stream = 0)
+      {
         BatchInit<T, BATCH> init;
         memset(&init, 0, sizeof(init));
         if (m_arrays.size() > BATCH)
-          std::cerr << "Number of arrays " << m_arrays.size() << 
-            " exceeding template BATCH " << BATCH << ", please increase BATCH." << std::endl;
+          std::cerr << "Number of arrays " << m_arrays.size() << " exceeding template BATCH " << BATCH << ", please increase BATCH." << std::endl;
         int small_idx = 0, big_idx = 0;
-        for (int i = 0; i != m_arrays.size(); i++) {
+        for (int i = 0; i != m_arrays.size(); i++)
+        {
           size_t _size = m_arrays[i]->size();
-          if (_size < 100000)  {
+          if (_size < 100000)
+          {
             init.ptrs[small_idx] = m_arrays[i]->getOverwriteGpuPtr();
             init.sizes[small_idx] = _size;
             init.vals[small_idx] = m_vals[i];
             ++small_idx;
-          } else {
+          }
+          else
+          {
             init.big_ptrs[big_idx] = m_arrays[i]->getOverwriteGpuPtr();
             init.big_sizes[big_idx] = _size;
             init.vals2[big_idx] = m_vals[i];
@@ -944,32 +976,30 @@ namespace jusha {
         batch_fill_wrapper<T, BATCH>(small_idx, big_idx, init, stream);
       }
 
-
     private:
       std::vector<MirroredArray<T> *> m_arrays;
       std::vector<T> m_vals;
     };
   } // cuda
 
-
-  // aliasing C++11 feature
-  /*  template <typename T> 
-      using JVector = cuda::MirroredArray<T>;*/
-  #define JVector jusha::cuda::MirroredArray
+// aliasing C++11 feature
+/*  template <typename T>
+    using JVector = cuda::MirroredArray<T>;*/
+#define JVector jusha::cuda::MirroredArray
 
   /* array operations */
 
   // y = x0 * x1
   template <class T>
-    void multiply(const JVector<T> &x0, const JVector<T> &x1, JVector<T> &y) ;
+  void multiply(const JVector<T> &x0, const JVector<T> &x1, JVector<T> &y);
 
-  // norm 
+  // norm
   template <class T>
-    T norm(const JVector<T> &vec);
+  T norm(const JVector<T> &vec);
 
   template <class T>
   void addConst(JVector<T> &vec, T val);
-  
+
 } // jusha
 
 /*
@@ -978,11 +1008,11 @@ __global__
 void  arrayMinusKernel(T *dst, const T * lhs, const T *rhs, int size)
 {
   GET_GID
-  OUTER_FOR 
+  OUTER_FOR
   {
     dst[curId] = lhs[curId] - rhs[curId];
   }
-  
+
 }
 */
 /*template <class T>
@@ -991,7 +1021,7 @@ MirroredArray<T> &operator-(const MirroredArray<T> &lhs, const MirroredArray<T> 
   MirroredArray<T> result(lhs.size());
   assert(lhs.size() == rhs.size());
   int size = lhs.size();
-  cudaDeviceProp *devProp = &gDevProp;  
+  cudaDeviceProp *devProp = &gDevProp;
   arrayMinusKernel<<<KERNEL_SETUP(size)>>>(result.getGpuPtr(), lhs.getReadOnlyGpuPtr(), rhs.getReadOnlyGpuPtr(), size);
   return result;
   }*/
