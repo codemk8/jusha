@@ -7,7 +7,7 @@ namespace jusha {
   }
 
 
-  void JacobiPrecond::solve (const JVector<double> &x, JVector<double> &y) const {
+  void JacobiPrecond::solve (const JVector<double> &, JVector<double> &) const {
 
     // const Matrix<double> *matrix = get_matrix();
     // assert(x.size() == matrix->get_num_rows());

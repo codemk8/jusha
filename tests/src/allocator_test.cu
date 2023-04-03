@@ -2,41 +2,39 @@
 #include "utility.h"
 #include "cuda/heap_allocator.h"
 
-
 using namespace jusha;
 
-
-TEST_CASE( "MemoryManagement", "[mm]" ) {
-
-
+TEST_CASE("MemoryManagement", "[mm]")
+{
 }
 
-TEST_CASE( "BinIndex", "[simple]" ) {
-  int bin_id;
+TEST_CASE("BinIndex", "[simple]")
+{
+  uint bin_id;
   size_t bin_bsize;
-  bin_index(MIN_BLOCK_BSIZE, bin_id, bin_bsize) ;
+  bin_index(MIN_BLOCK_BSIZE, bin_id, bin_bsize);
   REQUIRE(bin_id == 0);
   REQUIRE(bin_bsize == MIN_BLOCK_BSIZE);
 
-  bin_index(MIN_BLOCK_BSIZE<<1, bin_id, bin_bsize) ;
+  bin_index(MIN_BLOCK_BSIZE << 1, bin_id, bin_bsize);
   REQUIRE(bin_id == 1);
-  REQUIRE(bin_bsize == (MIN_BLOCK_BSIZE<<1));
+  REQUIRE(bin_bsize == (MIN_BLOCK_BSIZE << 1));
 
-  bin_index((MIN_BLOCK_BSIZE<<1)+4, bin_id, bin_bsize) ;
+  bin_index((MIN_BLOCK_BSIZE << 1) + 4, bin_id, bin_bsize);
   REQUIRE(bin_id == 2);
-  REQUIRE(bin_bsize == (MIN_BLOCK_BSIZE<<2));
+  REQUIRE(bin_bsize == (MIN_BLOCK_BSIZE << 2));
 
-  bin_index(MAX_BLOCK_BSIZE, bin_id, bin_bsize) ;
-  REQUIRE(bin_id == (NUM_BINS-1));
+  bin_index(MAX_BLOCK_BSIZE, bin_id, bin_bsize);
+  REQUIRE(bin_id == (NUM_BINS - 1));
   REQUIRE(bin_bsize == MAX_BLOCK_BSIZE);
 
-  bin_index(MAX_BLOCK_BSIZE-20, bin_id, bin_bsize) ;
-  REQUIRE(bin_id == (NUM_BINS-1));
+  bin_index(MAX_BLOCK_BSIZE - 20, bin_id, bin_bsize);
+  REQUIRE(bin_id == (NUM_BINS - 1));
   REQUIRE(bin_bsize == MAX_BLOCK_BSIZE);
-
 }
 
-TEST_CASE( "HeapManager", "[simple]" ) {
+TEST_CASE("HeapManager", "[simple]")
+{
   HeapAllocator hm;
-  int *ptr = (int*)hm.allocate(MIN_BLOCK_BSIZE);
+  int *ptr = (int *)hm.allocate(MIN_BLOCK_BSIZE);
 }

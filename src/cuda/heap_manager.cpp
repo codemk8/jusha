@@ -8,8 +8,8 @@
 #include "utility.h"
 using namespace std;
 
-#define USE_CUDA_ALLOCATOR
-// #undef USE_CUDA_ALLOCATOR
+// #define USE_CUDA_ALLOCATOR
+#undef USE_CUDA_ALLOCATOR
 namespace jusha
 {
   HeapManager gHeapManager;
@@ -108,9 +108,10 @@ namespace jusha
     return mGpuHeapAllocators[device];
   }
 
+#ifdef _DEBUG
   int HeapManager::find(Memory_Type type, void *addr)
   {
-#ifdef _DEBUG
+
     if (type == CPU_HEAP)
     {
       std::map<void *, int>::iterator it;
@@ -130,10 +131,8 @@ namespace jusha
       }
     }
     return 0;
-#else
-    return 0;
-#endif
   }
+#endif
 
   void HeapManager::NeFree(Memory_Type type, void *addr, const size_t &size)
   {
@@ -189,7 +188,7 @@ namespace jusha
     gHeapManager.NeFree(CPU_HEAP, ptr, size);
   }
 
-  void EmptyDeviceDeleter(void *ptr, size_t size)
+  void EmptyDeviceDeleter(void *, size_t) 
   {
     //  std::cout << " releasing device " << ptr << std::endl;
   }

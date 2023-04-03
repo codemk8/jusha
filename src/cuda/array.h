@@ -68,7 +68,7 @@ namespace jusha
         mIsGpuArray = false;
       }
 
-      bool mIsGpuArray() const
+      bool IsGpuArray() const
       {
         return mIsGpuArray;
       }
@@ -95,7 +95,6 @@ namespace jusha
       MirroredArray(const MirroredArray<T> &rhs)
       {
         init_state();
-        //          printf("in copy constructore %d %d %d %d.\n", mIsGpuValid, mGpuAllocated, mIsCpuValid, mCpuAllocated);
         deep_copy(rhs);
       }
 
@@ -430,9 +429,7 @@ namespace jusha
 
       T *getGpuPtr()
       {
-        //        printf("before enable gpu write  %p size %zd, %d %d\n", mDvceBase, size(), mIsGpuValid, mGpuAllocated);
         enableGpuWrite();
-        //        printf("returning %p size %zd, %d %d\n", mDvceBase, size(), mIsGpuValid, mGpuAllocated);
         return mDvceBase;
       }
 

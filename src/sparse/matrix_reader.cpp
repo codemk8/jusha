@@ -59,7 +59,7 @@ namespace jusha {
   }
   
   
-  void Hdf5Matrix::read_matrix(const char *file_name) {
+  void Hdf5Matrix::read_matrix(const char *) {
     // TODO
     assert(0);
 

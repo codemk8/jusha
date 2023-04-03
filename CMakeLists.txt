@@ -18,7 +18,7 @@ set(CMAKE_CUDA_STANDARD 17)
 set(CUDA_ARCH "60;70;75;80;86;87;89" CACHE STRING "CUDA Architectures")
 
 # set_target_properties(jusha PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Werror -Wextra")
 
 # set(CUDA_PROPAGATE_HOST_FLAGS ON)
 set(CUDA_BLOCKSIZE 256 CACHE STRING "CUDA block size.")
@@ -83,6 +83,8 @@ set(HEADERS_LIST
 ADD_LIBRARY(jusha STATIC ${CU_SRC_LIST} ${CPP_SRC_LIST} ${HEADERS_LIST})
 target_link_libraries(jusha ${CUDA_curand_LIBRARY})
 target_include_directories(jusha PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+
+# target_compile_options(jusha PRIVATE -Werror - -Wextra)
 add_subdirectory(tests)
 
 # add_subdirectory (utest)

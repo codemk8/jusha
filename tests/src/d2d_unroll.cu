@@ -15,10 +15,9 @@ __global__ void d2d_unroll_kernel(T *dst, const T * __restrict__ src, size_t siz
 #if 1
       #pragma unroll 
       for (int iter = 0; iter != unroll; iter++) {
-        *dst  = my_fetch_x<true>(index, src);
+        *dst  = src[index];
         index += s_stride;
         dst += s_stride;
-        //        src += s_stride;
       }
       // #pragma unroll 
       // for (int iter = 0; iter != unroll; iter++) {

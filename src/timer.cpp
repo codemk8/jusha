@@ -72,7 +72,7 @@ namespace jusha
 
   std::map<std::string, CudaEvent> g_cuda_events;
 
-  void cuda_event_start(const char *name, cudaStream_t stream)
+  void cuda_event_start(const char *name, cudaStream_t)
   {
     std::string e(name);
     auto iter = g_cuda_events.find(e);
@@ -87,7 +87,7 @@ namespace jusha
     (*iter).second.start();
   }
 
-  void cuda_event_stop(const char *name, cudaStream_t stream)
+  void cuda_event_stop(const char *name, cudaStream_t)
   {
     std::string e(name);
     std::map<std::string, CudaEvent>::iterator iter = g_cuda_events.find(e);
